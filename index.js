@@ -3,36 +3,16 @@ const express = require("express");
 const app = express();
 
 
-const DatabaseConnection = require("./includes/database/db-connection");
-
-const databaseConnection = new DatabaseConnection();
-
-
-
-
-async function dbCall() {
-    if (!await databaseConnection.create()) return;
-
-    //console.log(await databaseConnection.databaseCall("SELECT NOW()", []));
-    // for (let i = 0; i < 100; i++) {
-    //     await databaseConnection.databaseCall("INSERT INTO users (name) VALUES ($1)", [i.toString()]);
-    // }
-
-    // let result = await databaseConnection.databaseCall("TRUNCATE users", []);
-    // if (!result) return;
-    // console.log(result);
-
-    databaseConnection.disconnect();
-}
-
-dbCall();
-
-
+const {databaseConnection} = require("./includes/database/db-connection");
+if (!databaseConnection.checkActive()) throw new Error("Database connection is not active");
 
 
 
 //Import Routs
 const authRoute = require("./routs/auth.js");
+
+//Middlewares
+app.use(express.json());
 
 //Route Middlewares
 app.use("/api/user", authRoute);
