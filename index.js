@@ -1,30 +1,32 @@
+require('module-alias/register')
+
 //Import express
 const express = require("express");
 const app = express();
 
-
-console.log(typeof new Array())
 //Import functions
 const objectFunctions = require("./includes/object-functions");
+const settingsFunctions = require("./includes/settings/settings-functions");
+const userFunctions = require("./includes/user/user-functions");
+const permissionFunctions = require("./includes/permissions/permission-functions")
 
 
-const {databaseConnection} = require("./includes/database/db-connection");
+const { databaseConnection } = require("./includes/database/db-connection");
 if (!databaseConnection.checkActive()) throw new Error("Database connection is not active");
 
 
 async function run() {
-    console.log(await databaseConnection.getValueFromDatabase("users", "password", "name", "Test11", false, true));
-
-    await databaseConnection.setValueFromDatabase("users", "password", "name", "Test11", "This is a super secure password");
-   
-    addToArrayDatabase
-}   
+    console.log(await permissionFunctions.userHasPermissions("c68cefbc-2364-48ab-a390-ad670ca6ebfd", ["canResetPassword"], false))
+    console.log(await permissionFunctions.getPermissionRankingUser("c68cefbc-2364-48ab-a390-ad670ca6ebfd"));
+}
 
 run();
 
 
+
 //Import Routs
-const authRoute = require("./routs/auth.js");
+const authRoute = require("./routs/auth");
+const adminRoute = require("./routs/admin");
 
 //Middlewares
 app.use(express.json());
