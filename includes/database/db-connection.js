@@ -22,7 +22,8 @@ class DatabaseConnection {
         application_name: "homeAPI_NodeJS",
         max: 5,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
+        statement_timeout: 15000,
+        connectionTimeoutMillis: 5000,
         ssl: false,
       });
 
@@ -32,11 +33,11 @@ class DatabaseConnection {
       });
 
       postgresPool.on("acquire", (client) => {
-        console.log("Client was acquired from the pool.");
+        //console.log("Client was acquired from the pool.");
       });
 
       postgresPool.on("remove", (client) => {
-        console.log("Client was put into the pool.");
+        //console.log("Client was put into the pool.");
       });
 
       this.postgresPool = postgresPool;

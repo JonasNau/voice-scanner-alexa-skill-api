@@ -30,8 +30,13 @@ function canBeConvertedToDate(date) {
     return true;
 }
 
+function getMillisecondsFromDays(days) {
+    return 1000 * 60 * 60 * 24 * days;
+}
+
 module.exports = {
     isExpired,
     makeDate,
     canBeConvertedToDate,
+    getMillisecondsFromDays
 }

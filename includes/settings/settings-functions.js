@@ -11,6 +11,15 @@ async function setSettingValue(settingName, value) {
     return await databaseConnection.setValueFromDatabase("settings", "setting", "name", settingName, value);
 }
 
+
+async function createSetting() {
+
+}
+
+async function setValueFromSetting(settingName, value) {
+    
+}
+
 module.exports = {
     getSettingValue,
     setSettingValue
