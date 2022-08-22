@@ -28,11 +28,11 @@ async function auth(request, response, permissionsNeeded = [], next) {
     if (isLoggedIn === true) {
         const uuid = await databaseConnection.getValueFromDatabase("auth_tokens", "uuid", "jsonwebtoken", token, 1, false);
         if (!await permissionFunctions.userHasPermissions(uuid, permissionsNeeded)) {
-            myLogger.logToFILE("authentication-functions.log", `User ${uuid} was authenticated with token ${token} but has not all needed permissions to access.`, "info", permissionsNeeded, FILE_NAME);
+            myLogger.logToFILE("authentication-functions.log", `User ${uuid} was authenticated with token ${token} but has not all needed permissions to access.`, "info", permissionsNeeded, FILE_NAME, null, false);
             response.status(401).send({error: true, message: "Access denied", permissionsNeeded: permissionsNeeded})
             return false;
         }
-        myLogger.logToFILE("authentication-functions.log", `User ${uuid} was authenticated with token ${token}.`, "info", null, FILE_NAME);
+        myLogger.logToFILE("authentication-functions.log", `User ${uuid} was authenticated with token ${token}.`, "info", null, FILE_NAME, false);
         next(); //Continue to the next middleware
         return true;
     }
@@ -45,7 +45,7 @@ async function isLoggedIn_WithToken(token) {
     if (!token) return {error: true, message: "No auth token found", status: 401};
 
     if (!await databaseConnection.valueInDatabaseExists("auth_tokens", "jsonwebtoken", token)) {
-        myLogger.logToFILE("authentication-functions.log", `Token ${token} does not exist.`, "info", null, FILE_NAME);
+        myLogger.logToFILE("authentication-functions.log", `Token ${token} does not exist.`, "info", null, FILE_NAME, false);
         return {error: true, message: "Token does not exist.", status: 401};
     }
 
@@ -58,7 +58,7 @@ async function isLoggedIn_WithToken(token) {
 
     if (await JWTtokenIsExpired(token)) {
         await databaseConnection.deleteRowFromDatabase("auth_tokens", "jsonwebtoken", token);
-        myLogger.logToFILE("authentication-functions.log", `Token ${token} is expired an was deleted`, "info", null, FILE_NAME);
+        myLogger.logToFILE("authentication-functions.log", `Token ${token} is expired an was deleted`, "info", null, FILE_NAME, false);
         return {error: true, message: "Token is expired and was deleted.", status: 401};
     }
     return true;
@@ -66,7 +66,7 @@ async function isLoggedIn_WithToken(token) {
 
 
 async function JWTtokenIsExpired(token) {
-    let expires = databaseConnection.getValueFromDatabase("auth_tokens", "expires", "jsonwebtoken", token, 1, false);
+    let expires = databaseConnection.getValueFromDatabase("auth_tokens", "expires", "jsonwebtoken", token, 1, false, false);
     if (objectFunctions.emptyVariable(expires) || !dateFunctions.makeDate(expires)) {
         return false;
     }

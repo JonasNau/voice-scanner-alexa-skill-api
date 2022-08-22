@@ -95,7 +95,7 @@ class MyLogger {
     
   }
 
-  logToConsole(message = "LOG: ", level = levels.debug, meta = {}, fromFile = "", formatType = winston.format.simple, logToCombined = true) {
+  logToConsole(message = "LOG: ", level = levels.debug, meta = {}, fromFile = "", logToCombined = true, formatType = winston.format.simple) {
     this.logger.clear();
     this.logger.format = winston.format.combine(
         formatType(),
@@ -120,7 +120,7 @@ class MyLogger {
     if (logToCombined) {this.logToCombined(message, level, meta, fromFile, formatType)};
   }
 
-  logToFILE(file = "combined.log", message = "LOG: ", level = levels.info, meta, fromFile = "", formatType = winston.format.simple, logToCombined = true) {
+  logToFILE(file = "combined.log", message = "LOG: ", level = levels.info, meta, fromFile = "",  logToCombined = true, formatType = winston.format.simple) {
     this.logger.clear();
     this.logger.format = winston.format.combine(
         formatType(),

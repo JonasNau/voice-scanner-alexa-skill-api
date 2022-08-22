@@ -10,6 +10,7 @@ if (!databaseConnection.checkActive())
   const myLogger = loggingFunctions.myLogger;
   const pathFunctions = require("../../includes/path-functions");
   const FILE_NAME = pathFunctions.getNameOfCurrentFile(__filename);
+  const objectFunctions = require("../../includes/object-functions");
 
 
 const { auth } = require("../../includes/authentication/authentication-functions");
@@ -26,9 +27,9 @@ const { auth } = require("../../includes/authentication/authentication-functions
   router.get("/addPage", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
     let result = await voiceScanner.scanImage();
     if (!result.error) {
-        response.status(200).json({error: false, message: "Page Scanned!"});
+        response.status(200).json({error: false, message: "Page Scanned!", numberOfPages: await voiceScanner.getNumberOfPages()});
     } else {
-        response.status(500).json({error: true, message: "An error occurred while Scanning!", result, numberOfPages: await voiceScanner.getNumberOfPages()});
+        response.status(500).json({error: true, message: "An error occurred while Scanning!", result});
     }
   });
 
@@ -99,6 +100,9 @@ class VoiceScanner {
     }
 
     async convertAndUpload(filename, extension) {
+        if (!await this.getNumberOfPages()) {
+            return {error: true, message: "There are no files to convert."}
+        }
         if (!filename || !extension) {
             return {error: true, message: "Filename or extension is not specified."}
         }

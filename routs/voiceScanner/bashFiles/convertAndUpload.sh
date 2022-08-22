@@ -1,21 +1,24 @@
+#!/bin/bash
 cd "${0%/*}" #Goto current directory
 
+source ./scanVariables.sh
 source ./convertVariables.sh
 source ./functions.sh
 
 
 FINAL_FILE_NAME=$1;
 echo "Die Datei(en) wird ${FINAL_FILE_NAME} heißen";
-extension=$2;
+CONVERTED_IMAGE_EXTENSION=".$2"
 
-if [ ! "${fileExtenstions[*]}" =~ "${extension}" ]] || [ -z $extension ];
+if [[ ! "${fileExtenstions[*]}" =~ "${CONVERTED_IMAGE_EXTENSION}" ]] || [ -z $CONVERTED_IMAGE_EXTENSION ];
 then
     echo "There is no file extension specified or the extension is not supported"
     exit 1
 fi
 
+
 #Convert and upload
-if [ $extension = ".pdf" ]
+if [ $CONVERTED_IMAGE_EXTENSION = ".pdf" ]
 then
     #pdf
     files=( $(eval "ls -tr ${SCAN_FOLDER}*${SCANNED_IMAGE_EXTENSION}") )
@@ -35,15 +38,15 @@ then
 else
 
     files=( $(eval "ls -tr ${SCAN_FOLDER}*${SCANNED_IMAGE_EXTENSION}") )
-
-    for img in files; do
+    echo $files
+    for img in $files; do
         nameOfCurrentFile=$(basename "${img}");
-        log "Konvertiere: ${nameOfCurrentFile}";
-        eval "convert '${img}' '${CONVERTED_FOLDER}${nameOfCurrentFile}${extension}'"
+        log "Konvertiere: ${img}${nameOfCurrentFile}${SCANNED_IMAGE_EXTENSION}";
+        eval "convert '${img}' '${CONVERTED_FOLDER}${nameOfCurrentFile}${CONVERTED_IMAGE_EXTENSION}'"
         #Move to NAS
         FINAL_FILE_NAME=$(createUniqueFileName "${FILE_DESTINATION}" "${FINAL_FILE_NAME}" "${CONVERTED_IMAGE_EXTENSION}")
         log "Verschiebe: ${nameOfCurrentFile}";
-        eval "mv -f '${CONVERTED_FOLDER}${nameOfCurrentFile}${extension}' '${FILE_DESTINATION}${FINAL_FILE_NAME}${CONVERTED_IMAGE_EXTENSION}'";
+        eval "mv -f '${CONVERTED_FOLDER}${nameOfCurrentFile}${CONVERTED_IMAGE_EXTENSION}' '${FILE_DESTINATION}${FINAL_FILE_NAME}${CONVERTED_IMAGE_EXTENSION}'";
     done
     
 fi

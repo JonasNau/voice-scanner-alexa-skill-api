@@ -129,7 +129,7 @@ fi
 
 FILE_DESTINATION="/mnt/Wuschelcloud_Dateien/Dokumente/Scans/VoiceScanner/"
 
-if [ $extension = ".pdf" ]
+if [ $CONVERTED_IMAGE_EXTENSION = ".pdf" ]
 then
     #pdf
     files=( $(eval "ls -tr ${SCAN_FOLDER}*${SCANNED_IMAGE_EXTENSION}") )
@@ -152,8 +152,8 @@ else
 
     for img in files; do
         nameOfCurrentFile=$(basename "${img}");
-        log "Konvertiere: ${nameOfCurrentFile}";
-        eval "convert '${img}' '${CONVERTED_FOLDER}${nameOfCurrentFile}${extension}'"
+        log "Konvertiere: ${img}${nameOfCurrentFile}${SCANNED_IMAGE_EXTENSION}";
+        eval "convert '${img}${SCANNED_IMAGE_EXTENSION}' '${CONVERTED_FOLDER}${nameOfCurrentFile}${extension}'"
         #Move to NAS
         FINAL_FILE_NAME=$(createUniqueFileName "${FILE_DESTINATION}" "${FINAL_FILE_NAME}" "${CONVERTED_IMAGE_EXTENSION}")
         log "Verschiebe: ${nameOfCurrentFile}";
