@@ -3,13 +3,13 @@ if (!databaseConnection.checkActive()) throw new Error("Database connection is n
 
 //Import functions
 const objectFunctions = require("../object-functions");
-const settingsFunctions = require("../settings/settings-functions");
-const pathFunctions = require("../path-functions");
 const loggingFunctions = require("../logging/logging-functions");
 const myLogger = loggingFunctions.myLogger;
+const pathFunctions = require("../path-functions");
 const FILE_NAME = pathFunctions.getNameOfCurrentFile(__filename);
 
 async function userHasPermissions(uuid, permissionsNeeded = {}, checkWithRanking = false) {
+    if (!uuid) return false;
     let permissionsLeft = [];
     const usersPermissions = await databaseConnection.getValueFromDatabase("users", "permissions", "uuid", uuid, 1, false);
     const usersGroups = await databaseConnection.getValueFromDatabase("users", "groups", "uuid", uuid, 1, false);
@@ -153,7 +153,7 @@ async function getPermissionUser(uuid, permissionName, allPermissionsUser = null
 
     allPermissionsUser = (!objectFunctions.emptyVariable(allPermissionsUser) && (objectFunctions.isObject(allPermissionsUser) || allPermissionsUser === false)) ?  allPermissionsUser : await databaseConnection.getValueFromDatabase("users", "permissions", "uuid", uuid, 1, false);
     if (!allPermissionsUser) return false;
-    if (objectFunctions.emptyVariable(allPermissionsUser[permissionName])) return false;
+    if (objectFunctions.emptyVariable(allPermissionsUser[permissionName])) return null;
     return allPermissionsUser[permissionName];
 }
 
@@ -163,7 +163,7 @@ async function getPermissionGroup(groupName, permissionName, allPermissionsGroup
     allPermissionsGroup = (!objectFunctions.emptyVariable(allPermissionsGroup) && (objectFunctions.isObject(allPermissionsGroup) || allPermissionsGroup === false)) ?  allPermissionsGroup : await databaseConnection.getValueFromDatabase("groups", "permissions", "name", groupName, 1, false);
     if (!allPermissionsGroup) return false;
    
-    if (objectFunctions.emptyVariable(allPermissionsGroup[permissionName])) return false;
+    if (objectFunctions.emptyVariable(allPermissionsGroup[permissionName])) return undefined;
     return allPermissionsGroup[permissionName];
 }
 
@@ -262,22 +262,22 @@ async function removeForbiddenPermisionUser(uuid, permissionName) {
 
 
 async function addPermisionGroup(groupName, permissionName, permissionValue) {
-    if (!await permissionExists(permissionName)) return false;
+    //if (!await permissionExists(permissionName)) return false;
     return await databaseConnection.addToObjectDatabase("groups", "permissions", "name", groupName, permissionName, permissionValue);
 }
 
 async function addForbiddenPermissionGroup(groupName, permissionName) {
-    if (!await permissionExists(permissionName)) return false;
+    //if (!await permissionExists(permissionName)) return false;
     return await databaseConnection.addToArrayDatabase("groups", "isForbiddenTo", "name", groupName, permissionName, false);
 }
 
 async function removePermisionGroup(groupName, permissionName) {
-    if (!await permissionExists(permissionName)) return false;
+    //if (!await permissionExists(permissionName)) return false;
     return await databaseConnection.removeFromObjectDatabase("groups", "permissions", "name", groupName, permissionName, "key", true);
 }
 
 async function removeForbiddenPermisionGroup(groupName, permissionName) {
-    if (!await permissionExists(permissionName)) return false;
+    //if (!await permissionExists(permissionName)) return false;
     return await databaseConnection.removeFromArrayDatabase("groups", "isForbiddenTo", "name", groupName, permissionName, true, true);
 }
 
@@ -313,6 +313,7 @@ async function deleteGroup(groupName) {
         }
         
     }
+    myLogger.logToFILE("permission-functions.log", `Group '${groupName}' successfully deleted.`, "info", null, FROM_FILE);
 }
 
 async function changeGroupName(groupName, newName) {
@@ -320,7 +321,7 @@ async function changeGroupName(groupName, newName) {
 
     //Change Name from group
    if (!await databaseConnection.setValueFromDatabase("groups", "name", "name", groupName, newName)) {
-    myLogger.logToConsole(`Group '${groupName}' couldn't be renamed.`, "error", null, FROM_FILE);
+    myLogger.logToFILE("permission-functions.log", `Group '${groupName}' couldn't be renamed.`, "error", null, FROM_FILE);
     return;
    }
 
@@ -328,22 +329,122 @@ async function changeGroupName(groupName, newName) {
     const allUsersUUIDs = await databaseConnection.getAllValuesFromDatabase("users", "uuid", false, false);
     if (allUsersUUIDs && allUsersUUIDs.length) {
         for (const currentUserUUID of allUsersUUIDs) {
-            await removeGroupUser(currentUserUUID, groupName);
+            if (await userHasGroup(currentUserUUID, groupName)) {
+                myLogger.logToFILE("permission-functions.log", `Group '${groupName}' will be removed from '${currentUserUUID}'.`, "info", null, FROM_FILE);
+                if (!await removeGroupUser(currentUserUUID, groupName)) {
+                    myLogger.logToFILE("permission-functions.log",`Group '${groupName}' couldn't be removed From User '${currentUserUUID}'.`, "error", null, FROM_FILE);
+                    continue;
+                }
+                    myLogger.logToFILE("permission-functions.log", `Group '${groupName}' successfully removed from user '${currentUserUUID}'.`, "info", null, FROM_FILE);
+
+
+                if (!await addGroupUser(currentUserUUID, newName)) {
+                    myLogger.logToFILE("permission-functions.log", `Group '${newName}' couldn't be added to User '${currentUserUUID}'.`, "error", null, FROM_FILE);
+                    continue
+                } 
+                    myLogger.logToFILE("permission-functions.log", `Group '${groupName}' successfully added to user '${currentUserUUID}'.`, "info", null, FROM_FILE);
+            }
+            
+            
         }
         
     }
+
+    myLogger.logToFILE("permission-functions.log", `Group '${groupName}' successfully renamed to ${newName}.`, "info", null, FROM_FILE);
 }
 
-async function createPermission() {
-    
+async function createPermission(permissionName, description, ranking, normalValueToGrantAccess, usedAtEndpoints = {}) {
+    if (await permissionExists(permissionName)) return false;
+    return await databaseConnection.databaseCall(`INSERT INTO "permissions" ("name", "description", "ranking", "normalValueToGrantAccess", "usedAtEndpoints") VALUES ($1, $2, $3, $4, $5);`, [permissionName, description, ranking, normalValueToGrantAccess, JSON.stringify(usedAtEndpoints)]);
 }
 
-async function deletePermission() {
-    
+async function deletePermission(permissionName) {
+    if (!await permissionExists(groupName)) return false;
+
+    //Delete permission
+   if (!await databaseConnection.deleteRowFromDatabase("permissions", "name", permissionName)) {
+    myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' couldn't be deleted.`, "error", null, FROM_FILE);
+    return;
+   }
+
+    //Remove it from every user
+    const allUsersUUIDs = await databaseConnection.getAllValuesFromDatabase("users", "uuid", false, false);
+    if (allUsersUUIDs && allUsersUUIDs.length) {
+        for (const currentUserUUID of allUsersUUIDs) {
+            if (!await removePermisionUser(currentUserUUID, permissionName) || !await removeForbiddenPermisionUser(currentUserUUID, permissionName)) {
+                myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' couldn't be removed properly from USER ${currentUserUUID}.`, "error", null, FROM_FILE);
+            }
+        }
+        
+    }
+
+    //Remove it from every group
+    const allGroups = await databaseConnection.getAllValuesFromDatabase("groups", "name", false, false);
+    if (allGroups && allGroups.length) {
+        for (const currentGroup of allGroups) {
+            if (!await removePermisionGroup(currentGroup, permissionName) || !await removeForbiddenPermisionGroup(currentGroup, permissionName)) {
+                myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' couldn't be removed properly from GROUP ${currentGroup}.`, "error", null, FROM_FILE);
+            }
+        }
+        
+    }
+
+    myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' successfully deleted.`, "info", null, FROM_FILE);
 }
 
-async function changePermissionName() {
+async function changePermissionName(permissionName, newName) {
+    if (!await permissionExists(groupName)) return false;
 
+    //Rename Permission
+   if (!await databaseConnection.setValueFromDatabase("permissions", "name", "name", permissionName, newName)) {
+    myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' couldn't be renamed to ${newName}.`, "error", null, FROM_FILE);
+    return;
+   }
+
+    //Remove it from every user
+    const allUsersUUIDs = await databaseConnection.getAllValuesFromDatabase("users", "uuid", false, false);
+    if (allUsersUUIDs && allUsersUUIDs.length) {
+        for (const currentUserUUID of allUsersUUIDs) {
+            if (!objectFunctions.emptyVariable(await getPermissionUser(currentUserUUID, permissionName))) {
+                const permissionValue = await getPermissionUser(currentUserUUID, permissionName);
+                if (await addPermisionUser(currentUserUUID, newName, permissionValue)) {
+                    myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' at USER '${currentUserUUID}' was renamed to '${newName} with the value of`, "info", {permissionValue}, FROM_FILE);
+                } else {
+                    myLogger.logToFILE("permission-functions.log", `Permission '${permissionName}' at USER '${currentUserUUID}' couldn't be renamed to '${newName} with the value of`, "error", {permissionValue}, FROM_FILE);
+                }
+            }
+            await removePermisionUser(currentUserUUID, permissionName); //Remove the key even if the value is null or undefined
+
+            if (await userIsForbiddenTo(currentUserUUID, permissionName)) {
+                if (await addForbiddenPermissionUser(currentUserUUID, newName)) {
+                    myLogger.logToFILE("permission-functions.log", `Forbidden-Permission '${permissionName}' at USER '${currentUserUUID}' was renamed to '${newName} with the value of`, "info", null, FROM_FILE);
+                } else {
+                    myLogger.logToFILE("permission-functions.log", `Forbidden-Permission '${permissionName}' at USER '${currentUserUUID}' couldn't be renamed to '${newName} with the value of`, "error", null, FROM_FILE);
+                }
+                await removeForbiddenPermisionUser(currentUserUUID, permissionName) // Remove from List in any case
+            }
+           
+        }
+        
+    }
+
+    //Remove it from every group
+    const allGroups = await databaseConnection.getAllValuesFromDatabase("groups", "name", false, false);
+    if (allGroups && allGroups.length) {
+        for (const currentGroup of allGroups) {
+            if (await groupIsForbiddenTo(currentGroup, permissionName)) {
+                if (await addForbiddenPermissionGroup(currentGroup, newName)) {
+                    myLogger.logToFILE("permission-functions.log", `Forbidden-Permission '${permissionName}' at GROUP '${currentUserUUID}' was renamed to '${newName} with the value of`, "info", null, FROM_FILE);
+                } else {
+                    myLogger.logToFILE("permission-functions.log", `Forbidden-Permission '${permissionName}' at GROUP '${currentUserUUID}' couldn't be renamed to '${newName} with the value of`, "error", null, FROM_FILE);
+                }
+                await removeForbiddenPermisionGroup(currentGroup, permissionName) // Remove from List in any case
+            }
+        }
+        
+    }
+
+    myLogger.logToFILE("permission-functions.log", `Forbidden-Permission '${permissionName}' successfully renamed to ${newName}.`, "info", null, FROM_FILE);
 }
 
 module.exports = {
@@ -374,6 +475,9 @@ module.exports = {
     addGroupUser,
     removeGroupUser,
     deleteGroup,
-    
+    changeGroupName,
+    createPermission,
+    deletePermission,
+    changePermissionName,
 
 }

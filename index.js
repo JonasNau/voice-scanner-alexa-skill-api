@@ -1,4 +1,5 @@
 require('module-alias/register')
+const bodyParser = require('body-parser')
 
 const http = require('http')
 const https = require('https')
@@ -25,22 +26,31 @@ if (!databaseConnection.checkActive()) throw new Error("Database connection is n
 async function run() {
     // console.log(await permissionFunctions.userHasPermissions("c68cefbc-2364-48ab-a390-ad670ca6ebfd", {"canResetPassword": true, "SETTINGS_usersCanSignUp": false}, false))
     // console.log(await permissionFunctions.getPermissionRankingUser("c68cefbc-2364-48ab-a390-ad670ca6ebfd"));
+    
+    // await permissionFunctions.createPermission("ACCESS_ROUTE_voiceScanner", "Access Route Voice Scanner", 1, true, ["/api/voiceScanner"]);
+    // await permissionFunctions.addPermisionGroup()
 }
 
 run();
 
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: false }))
+// parse application/json
+app.use(bodyParser.json())
 
 //Import Routs
 const authRoute = require("./routs/auth");
-const adminRoute = require("./routs/admin");
+app.use("/api/user", authRoute);
+
+const voiceScannerRoute = require("./routs/voiceScanner/voiceScanner");
+app.use("/api/voiceScanner", voiceScannerRoute);
 
 //Middlewares
 app.use(express.json());
 
-//Route Middlewares
-app.use("/api/user", authRoute);
 
-http.createServer({}, app).listen(3000)
+
+http.createServer(app).listen(3000)
 
 const options = {
     key: fs.readFileSync('./sslCerts/key.pem'),

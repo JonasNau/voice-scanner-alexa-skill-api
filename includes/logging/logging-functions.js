@@ -294,13 +294,19 @@ myLogger.configureUncaughtExceptionLogger();
 //Create log Folder if it doesn't exist
 fileFunctions.makeDirsRecursivelyIfNotExists(myLogger.loggingFolder);
 
+
+async function clean() {
+  await myLogger.archiveLogDirectoriesOlderThanXDays()
+  setInterval(() => myLogger.archiveLogDirectoriesOlderThanXDays(), dateFunctions.getMillisecondsFromDays(1))
+  await myLogger.deleteLogArchivesOlderThanXDays()
+  setInterval(() => myLogger.deleteLogArchivesOlderThanXDays(), dateFunctions.getMillisecondsFromDays(1))
+  await myLogger.clearLogsInLogRoot()
+  setInterval(() => myLogger.clearLogsInLogRoot(), dateFunctions.getMillisecondsFromDays(1))
+}
+
+clean();
 //Archive and Delete
-myLogger.archiveLogDirectoriesOlderThanXDays()
-setInterval(() => myLogger.archiveLogDirectoriesOlderThanXDays(), dateFunctions.getMillisecondsFromDays(1))
-myLogger.deleteLogArchivesOlderThanXDays()
-setInterval(() => myLogger.deleteLogArchivesOlderThanXDays(), dateFunctions.getMillisecondsFromDays(1))
-myLogger.clearLogsInLogRoot()
-setInterval(() => myLogger.clearLogsInLogRoot(), dateFunctions.getMillisecondsFromDays(1))
+
 
 
 

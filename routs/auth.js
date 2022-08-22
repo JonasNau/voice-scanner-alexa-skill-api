@@ -9,6 +9,14 @@ if (!databaseConnection.checkActive())
 const objectFunctions = require("../includes/object-functions");
 const settingsFunctions = require("../includes/settings/settings-functions");
 const authenticationFunctions = require("../includes/authentication/authentication-functions");
+const permissionFunctions = require("../includes/permissions/permission-functions");
+const dateFunctions = require("../includes/date-functions");
+//LOGGING
+const loggingFunctions = require("../includes/logging/logging-functions");
+const myLogger = loggingFunctions.myLogger;
+const pathFunctions = require("../includes/path-functions");
+const FILE_NAME = pathFunctions.getNameOfCurrentFile(__filename);
+
 
 const jwt = require("jsonwebtoken");
 
@@ -17,6 +25,8 @@ const jwt = require("jsonwebtoken");
 const Joi = require("@hapi/joi");
 //Import bcrypt
 const bcrypt = require("bcryptjs");
+
+
 
 router.post("/register", async (request, response) => {
   if (!await settingsFunctions.getSettingValue("usersCanSignUp")) {
@@ -74,6 +84,8 @@ router.post("/login", async (request, response) => {
     expire: Joi.date()
   })
 
+
+
   let validation = loginSchema.validate(request.body);
   if (!objectFunctions.emptyVariable(validation.error)) {
     response.status(400).json(validation.error);
@@ -82,9 +94,9 @@ router.post("/login", async (request, response) => {
 
   let now = new Date();
   let expires;
-  if (!objectFunctions.emptyVariable(validation.value.expire)) {
+  if (!objectFunctions.emptyVariable(validation.value?.expire) || !dateFunctions.makeDate(validation.value?.expire)) {
     expires = new Date(validation.value.expire);
-    if (expires.getTime() <= now.getTime()) {
+    if (expires <= now) {
       response.status(400).json({error: true, message: "The expire time is in the past."})
       return;
     }
@@ -101,25 +113,31 @@ router.post("/login", async (request, response) => {
     return;
   }
 
-  let uuid = await databaseConnection.getValueFromDatabase("users", "uuid", "username", validation.value.username, 1, false)
+  const uuid = await databaseConnection.getValueFromDatabase("users", "uuid", "username", validation.value.username, 1, false)
   let hashedPasswordDB = await databaseConnection.getValueFromDatabase("users", "password", "uuid", uuid, 1, false);
 
+  if (!await permissionFunctions.userHasPermissions(uuid, ["canLogin"])) {
+    myLogger.logToFILE("auth.log", `The user with the uuid '${uuid}' tried to login, but he / she is not allowed to.`, "info");
+    response.status(400).json({error: true, message: "You are not allowed to login"});
+    return;
+  }
 
   if (!await authenticationFunctions.passwordIsCorrect(hashedPasswordDB, validation.value.password)) {
+    myLogger.logToFILE("auth.log", `The user with the uuid '${uuid}' tried to login, but the password was wrong.`, "info");
     response.status(401).json({error: true, message: "Wrong password."})
     return;
   }
 
   let userdata = await databaseConnection.databaseCall(`SELECT "userID", "uuid", "username", "password", "created", "lastLogin", "lastPwdChange", "groups", "permissions", "isForbiddenTo", "expires" FROM users WHERE uuid = $1`, [uuid]);
-  const jwtToken = jwt.sign(userdata.rows[0], process.env.TOKEN_SECRET)
+  const jwtToken = jwt.sign(userdata.rows[0], process.env.JWT_TOKEN_SECRET)
 
 
   if (!await databaseConnection.databaseCall(`INSERT INTO "auth_tokens" ("jsonwebtoken", "uuid", "created", "expires", "usecase") VALUES ($1, $2, $3, $4, $5);`, [jwtToken, uuid, new Date().toString(), expires?.toString(), validation.value.usecase])) {
     response.status(500).json({error: true, message: "Error while creating your jwt-token"})
     return;
   }
-
-  response.status(200).json({error: false, message: "Successfully created a jwt-token", token: jwtToken})
+  myLogger.logToFILE("auth.log", `The user with the uuid '${uuid}' successfully logged in and got the token '${jwtToken}'`, "info");
+  response.status(200).json({error: false, message: "Successfully created a jwt-token. Now you can login with it.", token: jwtToken})
 });
 
 router.post("/logout", async (request, response) => {
@@ -134,7 +152,7 @@ router.post("/logout", async (request, response) => {
   }
 
   if (!await databaseConnection.valueInDatabaseExists("auth_tokens", "jsonwebtoken", validation.value.jsonwebtoken)) {
-    response.status(400).json({error: true, message:"This token is not valid"});
+    response.status(400).json({error: true, message:"This token doesn't exist!"});
     return;
   }
 
@@ -143,7 +161,8 @@ router.post("/logout", async (request, response) => {
     return;
   }
 
-  response.status(200).json({error: false, message: "Successfully logged out that token."});
+  myLogger.logToFILE("auth.log", `The token '${validation.value.jsonwebtoken}' successfully logged out. (deleted)'${jwtToken}'`, "info");
+  response.status(200).json({error: false, message: "Successfully logged out and deleted that token."});
 });
 
 router.post("/logoutall", async (request, response) => {
@@ -163,7 +182,7 @@ router.post("/logoutall", async (request, response) => {
     return;
   }
 
-  let uuid = await databaseConnection.getValueFromDatabase("users", "uuid", "username", validation.value.username, 1, false)
+  const uuid = await databaseConnection.getValueFromDatabase("users", "uuid", "username", validation.value.username, 1, false)
   let hashedPasswordDB = await databaseConnection.getValueFromDatabase("users", "password", "uuid", uuid, 1, false);
 
 
@@ -177,7 +196,8 @@ router.post("/logoutall", async (request, response) => {
     return;
   }
 
-  response.status(200).json({error: false, message: "Successfully logged out all tokens."});
+  myLogger.logToFILE("auth.log", `The user with the uuid '${uuid}' successfully logged out all tokens (deleted)'${jwtToken}'`, "info");
+  response.status(200).json({error: false, message: "Successfully logged out all tokens. (deleted)"});
 });
 
 
@@ -206,18 +226,28 @@ router.post("/resetPassword", async (request, response) => {
   }
 
   
-  let uuid = await databaseConnection.getValueFromDatabase("users", "uuid", "username", validation.value.username, 1, false)
+  const uuid = await databaseConnection.getValueFromDatabase("users", "uuid", "username", validation.value.username, 1, false)
   //Check if user has permissions to delete Password
+
+  if (!await permissionFunctions.userHasPermissions(uuid, ["canResetPassword"])) {
+    myLogger.logToFILE("auth.log", `The user with the uuid '${uuid}' tried to reset the password but has no permissions to do so.`, "info");
+    response.status(403).json({error: true, message: "You have not the permissions to reset your password."});
+    return;
+  }
   
 
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(validation.value.password, salt);
 
   if (!await databaseConnection.setValueFromDatabase("users", "password", "uuid", uuid, hashedPassword)) {
+    myLogger.logToFILE("auth.log", `Resetting the password form user with the uuid '${uuid}' failed due to an internal error.`, "error");
     response.status(500).json({error: true, message: "Password couldn't be reset due to an internal error."})
+    return;
   }
 
-  response.status(200).json({error: false, message: "Successfully changed password"});
+  myLogger.logToFILE("auth.log", `Resetting the password form user with the uuid '${uuid}' was successfull.`, "info");
+  await permissionFunctions.removePermisionUser(uuid, "canResetPassword");
+  response.status(200).json({error: false, message: "Successfully changed password. Now you can't do it again because your permission was removed for that."});
 });
 
 
