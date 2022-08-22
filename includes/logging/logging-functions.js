@@ -6,7 +6,10 @@ const dateFunctions = require("../date-functions");
 const fileFunctions = require("../file-functions");
 const fs = require("node:fs");
 const archiver = require("archiver");
-const { setTimeout } = require("node:timers/promises");
+const util = require("util");
+
+
+
 
 
 const levels = {
@@ -92,18 +95,16 @@ class MyLogger {
     
   }
 
-  logToConsole(message = "LOG: ", level = levels.debug, options = {
-    meta: []
-  }, formatType = winston.format.simple, fromFile = "", logToCombined = true) {
+  logToConsole(message = "LOG: ", level = levels.debug, meta = {}, fromFile = "", formatType = winston.format.simple, logToCombined = true) {
     this.logger.clear();
     this.logger.format = winston.format.combine(
         formatType(),
         winston.format.timestamp({ format: "DD-MM-YYYY HH:mm:ss.SSSS" }),
         winston.format.printf((info) => {
-        if (options?.meta?.length) {
+        if (meta !== null) {
             return `\n[${info.timestamp}]-${fromFile}-[${info.level.toUpperCase()}]: ${
                 info.message
-              } \nMETA:\n${JSON.stringify(options?.meta, null, 1)}`;
+              } \nMETA:\n${util.inspect(meta, {showHidden: false, depth: null, colors: true, maxArrayLength: null, breakLength: 80})}`;
         } 
         return `\n[${info.timestamp}]-${fromFile}-[${info.level.toUpperCase()}]: ${
             info.message
@@ -116,21 +117,19 @@ class MyLogger {
     this.logger.log(level, message)
 
     //Log to combined log
-    if (logToCombined) this.logToCombined(message, level, options, formatType, fromFile, false)
+    if (logToCombined) {this.logToCombined(message, level, meta, fromFile, formatType)};
   }
 
-  logToFILE(file = "combined.log", message = "LOG: ", level = levels.info, options = {
-    meta: []
-  }, formatType = winston.format.simple, fromFile = "", logToCombined = true) {
+  logToFILE(file = "combined.log", message = "LOG: ", level = levels.info, meta, fromFile = "", formatType = winston.format.simple, logToCombined = true) {
     this.logger.clear();
     this.logger.format = winston.format.combine(
         formatType(),
         winston.format.timestamp({ format: "DD-MM-YYYY HH:mm:ss.SSSS" }),
         winston.format.printf((info) => {
-        if (options?.meta?.length) {
+        if (meta !== null) {
             return `\n[${info.timestamp}]-${fromFile}-[${info.level.toUpperCase()}]: ${
                 info.message
-              } \nMETA:\n${JSON.stringify(options?.meta, null, 1)}`;
+              } \nMETA:\n${util.inspect(meta, {showHidden: false, depth: null, colors: true, maxArrayLength: null, breakLength: 80})}`;
         } 
         return `\n[${info.timestamp}]-${fromFile}-[${info.level.toUpperCase()}]: ${
             info.message
@@ -146,23 +145,19 @@ class MyLogger {
     }
     this.logger.level = level;
     this.logger.log(level, message)
-    if (logToCombined) {
-        this.logToCombined( message, level, options, formatType, fromFile, false)
-    }
+    if (logToCombined) {this.logToCombined(message, level, meta, fromFile, formatType)};
   }
 
-  logToCombined(message = "LOG: ", level = levels.info, options = {
-    meta: []
-  }, formatType = winston.format.simple, fromFile = "") {
+  logToCombined(message = "LOG: ", level = levels.info, meta, fromFile = "", formatType = winston.format.simple) {
     this.logger.clear();
     this.logger.format = winston.format.combine(
         formatType(),
         winston.format.timestamp({ format: "DD-MM-YYYY HH:mm:ss.SSSS" }),
         winston.format.printf((info) => {
-        if (options?.meta?.length) {
+        if (meta !== null) {
             return `\n[${info.timestamp}]-${fromFile}-[${info.level.toUpperCase()}]: ${
                 info.message
-              } \nMETA:\n${JSON.stringify(options?.meta, null, 1)}`;
+              } \nMETA:\n${util.inspect(meta, {showHidden: false, depth: null, colors: true, maxArrayLength: null, breakLength: 80})}`;
         } 
         return `\n[${info.timestamp}]-${fromFile}-[${info.level.toUpperCase()}]: ${
             info.message

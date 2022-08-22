@@ -4,6 +4,10 @@ if (!databaseConnection.checkActive()) throw new Error("Database connection is n
 //Import functions
 const objectFunctions = require("../object-functions");
 const settingsFunctions = require("../settings/settings-functions");
+const pathFunctions = require("../path-functions");
+const loggingFunctions = require("../logging/logging-functions");
+const myLogger = loggingFunctions.myLogger;
+const FILE_NAME = pathFunctions.getNameOfCurrentFile(__filename);
 
 async function userHasPermissions(uuid, permissionsNeeded = {}, checkWithRanking = false) {
     let permissionsLeft = [];
@@ -298,6 +302,7 @@ async function deleteGroup(groupName) {
     //Delete group
    if (!await databaseConnection.deleteRowFromDatabase("groups", "name", groupName)) {
     console.error(`Group '${groupName}' couldn't be deleted.`);
+    return;
    }
 
     //Remove it from every user
@@ -310,8 +315,23 @@ async function deleteGroup(groupName) {
     }
 }
 
-async function changeGroupName() {
+async function changeGroupName(groupName, newName) {
+    if (!await groupExists(groupName)) return false;
 
+    //Change Name from group
+   if (!await databaseConnection.setValueFromDatabase("groups", "name", "name", groupName, newName)) {
+    myLogger.logToConsole(`Group '${groupName}' couldn't be renamed.`, "error", null, FROM_FILE);
+    return;
+   }
+
+    //Remove it from every user
+    const allUsersUUIDs = await databaseConnection.getAllValuesFromDatabase("users", "uuid", false, false);
+    if (allUsersUUIDs && allUsersUUIDs.length) {
+        for (const currentUserUUID of allUsersUUIDs) {
+            await removeGroupUser(currentUserUUID, groupName);
+        }
+        
+    }
 }
 
 async function createPermission() {
@@ -353,6 +373,7 @@ module.exports = {
     createGroup,
     addGroupUser,
     removeGroupUser,
-
+    deleteGroup,
+    
 
 }

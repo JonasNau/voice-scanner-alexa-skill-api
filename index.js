@@ -1,5 +1,11 @@
 require('module-alias/register')
 
+const http = require('http')
+const https = require('https')
+const fs = require('fs');
+     
+     
+
 //Import express
 const express = require("express");
 const app = express();
@@ -17,18 +23,11 @@ if (!databaseConnection.checkActive()) throw new Error("Database connection is n
 
 
 async function run() {
-    console.log(await permissionFunctions.userHasPermissions("c68cefbc-2364-48ab-a390-ad670ca6ebfd", {"canResetPassword": true, "SETTINGS_usersCanSignUp": false}, false))
-    console.log(await permissionFunctions.getPermissionRankingUser("c68cefbc-2364-48ab-a390-ad670ca6ebfd"));
+    // console.log(await permissionFunctions.userHasPermissions("c68cefbc-2364-48ab-a390-ad670ca6ebfd", {"canResetPassword": true, "SETTINGS_usersCanSignUp": false}, false))
+    // console.log(await permissionFunctions.getPermissionRankingUser("c68cefbc-2364-48ab-a390-ad670ca6ebfd"));
 }
 
 run();
-
-//loggingFunctions.myLogger.getDirectories(".")
-
-//test
-
-
-//loggingFunctions.myLogger.logToConsole("Directories", "debug", {meta: getDirectories(".")}, loggingFunctions.loggingFormats.simple)
 
 
 //Import Routs
@@ -41,4 +40,11 @@ app.use(express.json());
 //Route Middlewares
 app.use("/api/user", authRoute);
 
-app.listen(3000, () => console.log("Up and running"));
+http.createServer({}, app).listen(3000)
+
+const options = {
+    key: fs.readFileSync('./sslCerts/key.pem'),
+    cert: fs.readFileSync('./sslCerts/cert.pem')
+    };
+
+https.createServer(options, app).listen(3001)
