@@ -1,4 +1,3 @@
-#!/bin/bash
 cd "${0%/*}" #Goto current directory
 
 source ./scanVariables.sh
@@ -16,6 +15,9 @@ then
     exit 1
 fi
 
+
+FILE_DESTINATION="${FILE_DESTINATION}/$(getDailyFolderName)/"
+makeFolderRecursive "${FILE_DESTINATION}";
 
 #Convert and upload
 if [ $CONVERTED_IMAGE_EXTENSION = ".pdf" ]

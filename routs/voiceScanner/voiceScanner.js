@@ -15,26 +15,45 @@ if (!databaseConnection.checkActive())
 
 const { auth } = require("../../includes/authentication/authentication-functions");
 
-  router.get("/", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+  router.post("/", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
     response.status(200).json({error: false, message: "Welcome to voiceScanner!", routs: ["/init", "/stopScan", "/addPage", "/convertAndUpload"]});
   });
 
-  router.get("/init", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
-    await voiceScanner.init();
-    response.status(200).json({error: false, message: "Initialized voiceScanner! Start scanning with '/addPage'"});
-  });
-
-  router.get("/addPage", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
-    let result = await voiceScanner.scanImage();
+  router.post("/init", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+    let result = await voiceScanner.init(false);
     if (!result.error) {
-        response.status(200).json({error: false, message: "Page Scanned!", numberOfPages: await voiceScanner.getNumberOfPages()});
+        response.status(200).json({error: false, message: "Scanner wurde erfolgreich inizialisiert."});
     } else {
-        response.status(500).json({error: true, message: "An error occurred while Scanning!", result});
+        response.status(500).json({error: true, message: "Ein Fehler ist beim Inizialisieren aufgetreten. Prüfe, ob der Drucker eingeschalt und mit dem Netzwerk verbunden ist.", data: result});
     }
   });
 
+  router.post("/clear", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+    let result = await voiceScanner.clear();
+    if (!result.error) {
+        response.status(200).json({error: false, message: "Scanner und Dateien wurden zurückgesetzt. Nun kannst du wieder mit dem Scannen beginnen."});
+    } else {
+        response.status(500).json({error: false, message: "Ein Fehler beim zurücksetzen ist aufgetreten. Bitte versuche es erneut."});
+    }
+  });
 
-  router.get("/convertAndUpload", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+  router.post("/addPage", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+    let result = await voiceScanner.scanImage();
+    if (!result.error && result.stderr == "") {
+        response.status(200).json({error: false, message: "Seite erfolgreich hinzugefügt.", numberOfPages: await voiceScanner.getNumberOfPages()});
+    } else {
+        response.status(500).json({error: true, message: "Ein Fehler beim Scannen ist aufgetreten. Bitte versuche es erneut.", result});
+    }
+  });
+
+  router.post("/kill", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+    voiceScanner.killCurrentProccess();
+    await voiceScanner.init(false);
+    response.status(200).json({error: false, message: "Scanner wurde erfolgreich gestoppt und ist wieder einsatzbereit."});
+  });
+
+
+  router.post("/convertAndUpload", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
     let schema = Joi.object({
         filename: Joi.string().required(),
         extension: Joi.string().required()
@@ -52,9 +71,13 @@ const { auth } = require("../../includes/authentication/authentication-functions
     }
   });
 
-  router.get("/numberOfPages", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+  router.post("/numberOfPages", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
     let numberOfPages = await voiceScanner.getNumberOfPages();
     response.status(200).json({error: false, numberOfPages});
+  });
+
+  router.post("/status", (request, response, next) => { auth(request, response, ["ACCESS_ROUTE_voiceScanner"], next)}, async (request, response) => {
+    response.status(200).json({error: false, numberOfPages: await voiceScanner.getNumberOfPages(), isScanning: voiceScanner.isScanning, currentState: voiceScanner.currentState});
   });
 
   const cp = require('child_process');
@@ -64,7 +87,7 @@ class VoiceScanner {
         this.currentState = "waiting for init";
         this.fileExtensions = ["pdf", "png", "jpg"];
         this.pathToScripts = "./bashFiles";
-        this.currentScript;
+        this.currentScript = null;
     }
 
     async runBashScript(pathToScript, args = "") {
@@ -77,13 +100,20 @@ class VoiceScanner {
     }
 
     killCurrentProccess() {
-        return this.currentScript.kill();
+        return this.currentScript?.kill?.();
     }
 
 
-    async init() {
+    async init(checkIfScannerIsOnline = true) {
+        if (checkIfScannerIsOnline) {
+            if (!await this.scannerIsOnline()) {
+                return {error: true, message: "Scanner is offline"}
+            }
+        }
+       
         this.currentState = "initialized";
-        await this.runBashScript(`${this.pathToScripts}/removeFilesInScanFolder.sh`);
+        this.isScanning = false;
+        return await this.runBashScript(`${this.pathToScripts}/removeFilesInScanFolder.sh`);
     }
 
     async scanImage() {
@@ -115,8 +145,17 @@ class VoiceScanner {
         return result;
     }
 
+    async scannerIsOnline() {
+        let result = await this.runBashScript(`${this.pathToScripts}/checkScannerOnline.sh`);
+        myLogger.logToFILE("voiceScanner.log", `Scanner status:`, "info", result, FILE_NAME);
+        if (result.error) return false;
+        if (result.stderr != "") return false;
+        if (result.stdout == "") return false;
+        return true;
+    }
+
     async clear() {
-        await this.init()
+        return await this.init(false)
     }
 
     async getNumberOfPages() {

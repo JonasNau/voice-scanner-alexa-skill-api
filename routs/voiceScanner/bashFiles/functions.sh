@@ -32,3 +32,11 @@ scanImage() {
     log "Scanning finished";
 }
 
+makeFolderRecursive() {
+    path=$1
+    mkdir -p "${path}"
+}
+
+getDailyFolderName() {
+    echo $(date '+%d-%m-%Y')
+}
