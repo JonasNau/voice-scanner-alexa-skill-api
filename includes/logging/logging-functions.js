@@ -8,10 +8,6 @@ const fs = require("node:fs");
 const archiver = require("archiver");
 const util = require("util");
 
-
-
-
-
 const levels = {
   error: "error",
   warn: "warn",
@@ -70,7 +66,7 @@ class MyLogger {
               new winston.transports.File({ filename: `${this.loggingFolder}/${this.getDailyFolderName()}/uncaughtExceptions.log` }),
               new winston.transports.File({ filename: `${this.loggingFolder}/combined.log`}),
             ],
-            exitOnError: false,
+            exitOnError: true
           });
     } else {
         this.uncaughtExceptionLogger = winston.createLogger({
@@ -86,10 +82,10 @@ class MyLogger {
             exceptionHandlers: [
               new winston.transports.Console(),
               new winston.transports.File({ filename: `${this.loggingFolder}/uncaughtExceptions.log` }),
-              new winston.transports.File({ filename: `${this.loggingFolder}/combined.log`, maxFiles: "1d"}),
+              new winston.transports.File({ filename: `${this.loggingFolder}/combined.log`}),
 
             ],
-            exitOnError: false,
+            exitOnError: true
           });
     }
     

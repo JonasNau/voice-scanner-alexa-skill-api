@@ -1,4 +1,4 @@
-CONVERTED_FOLDER="/home/pi/Documents/VoiceScanner/Converted/"
+CONVERTED_FOLDER="/home/jonas/Documents/VoiceScanner/Converted/"
 CONVERTED_IMAGE_FILENAME="scannedImage";
 CONVERTED_IMAGE_EXTENSION=".pdf"
 fileExtenstions=(".png", ".pdf", ".jpg");

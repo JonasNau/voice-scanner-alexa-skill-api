@@ -28,8 +28,7 @@ class DatabaseConnection {
       });
 
       postgresPool.on("error", (err, client) => {
-        console.error("Unexpected error on idle client", { client, err });
-        process.exit(-1);
+        throw new Error("Unexpected error on idle client", { client, err });
       });
 
       postgresPool.on("acquire", (client) => {
@@ -39,15 +38,13 @@ class DatabaseConnection {
       postgresPool.on("remove", (client) => {
         //console.log("Client was put into the pool.");
       });
-
       this.postgresPool = postgresPool;
 
       if (!(await this.checkConnection())) {
-        console.error("Connection to database failed.");
         this.postgresPool = null;
-        resolve(false);
+        throw new Error("Connection to database failed.");
       }
-
+      
       console.log("Connection to the database successfully established.");
       resolve(postgresPool);
     });
@@ -55,8 +52,7 @@ class DatabaseConnection {
 
   checkActive() {
     if (!this.postgresPool) {
-      console.error("You are not connected to the database.");
-      return false;
+      throw new Error("You are not connected to the database.");
     }
     return true;
   }
@@ -102,8 +98,7 @@ class DatabaseConnection {
       this.postgresPool.connect((error, client, releaseClient) => {
         if (error && options?.handleError) {
           if (client) client.release();
-          console.error(error);
-          resolve(false);
+          throw new Error(error);
         }
 
         if (typeof callback == "function")
@@ -134,15 +129,15 @@ class DatabaseConnection {
         }
 
         if (error) {
-          console.error(error.stack);
+         throw new Error(error.stack);
           client.release();
           resolve(false);
           return;
         }
         client.query(SQL, valueArray, (error, response) => {
           if (error) {
-            console.error(error.stack);
             client.release();
+            throw new Error(error.stack);
             resolve(false);
             return;
           }
@@ -432,16 +427,8 @@ class DatabaseConnection {
 
 const databaseConnection = new DatabaseConnection();
 
-async function connectToDB() {
-  if (!(await databaseConnection.create())) {
-    return false;
-  }
-  return true;
-}
-
-connectToDB();
 
 module.exports = {
   DatabaseConnectionClass: DatabaseConnection,
-  databaseConnection: databaseConnection,
+  databaseConnection: databaseConnection
 };
